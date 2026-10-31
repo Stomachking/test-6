@@ -1,0 +1,758 @@
+<title>Asia Outlook Reader</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+<style>
+/* Layout: a reading column (report serif) beside a sticky margin rail (compact sans) that collects marks; on phones the rail becomes a bottom sheet. */
+/* Layout: a reading column (Times) beside a sticky margin rail (Amplitude/Archivo) that collects marks; on phones the rail becomes a bottom sheet. White ground, copper and mint accents, black controls. */
+:root{
+  --paper:#ffffff; --paper-2:#f9fafb; --ink:#000000; --ink-2:#374151; --ink-3:#6b7280; --rule:#e5e7eb;
+  --copper:#936846; --mint:#48e3a8;
+  --accent:#000000; --accent-ink:#ffffff; --accent-soft:#f1e6dc;
+  --hl-key:#d9f7ea; --hl-key-line:#48e3a8;
+  --hl-question:#f1e6dc; --hl-question-line:#936846;
+  --hl-action:#eceff3; --hl-action-line:#111827;
+  --card:#ffffff; --shadow:0 12px 32px rgba(0,0,0,.12);
+  --serif:"Times New Roman", Times, serif;
+  --sans:Amplitude, "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono:"IBM Plex Mono", Menlo, Consolas, monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--paper);border-bottom:1px solid var(--rule);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-block:10px}
+.topbar .brand{font-family:var(--serif);font-weight:400;font-size:21px;letter-spacing:.01em}
+.topbar .demo{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3)}
+.topbar .spacer{flex:1}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:14px;height:10px;border-radius:2px;display:inline-block}
+.progress{height:3px;background:var(--rule);width:100%;flex-basis:100%;margin-top:4px;position:relative}
+.progress b{position:absolute;inset:0 auto 0 0;width:0;background:var(--mint);transition:width .15s linear}
+
+/* Two columns */
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:48px;max-width:1120px;margin:0 auto;padding-block:28px 80px}
+@media (max-width:860px){ .wrap{grid-template-columns:minmax(0,1fr);gap:0;padding-bottom:120px} }
+
+/* Article */
+.article{font-family:var(--serif);font-size:19px;line-height:1.65;max-width:66ch;min-width:0;color:#111827}
+.article .kicker{font-family:var(--sans);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--copper);font-weight:600}
+.article h1{font-size:clamp(34px,4.8vw,52px);line-height:1.05;margin:8px 0 12px;font-weight:400;color:var(--ink);text-wrap:balance}
+.article .dek{font-size:22px;color:var(--copper);font-style:italic;margin:0 0 16px;line-height:1.3}
+.article .byline{font-family:var(--sans);font-size:13px;color:var(--ink-3);margin:0 0 26px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
+.article .byline a{color:var(--ink-2)}
+.article h2{font-size:30px;line-height:1.2;margin:48px 0 14px;font-weight:400;color:var(--ink);text-wrap:balance;scroll-margin-top:90px}
+.article h2 small{display:block;font-family:var(--sans);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--copper);font-weight:600;margin-bottom:8px}
+.article p{margin:0 0 18px}
+.article ul{margin:0 0 18px;padding-left:22px}
+.article li{margin-bottom:8px}
+.article .summary{background:var(--paper-2);padding:20px 24px;border-radius:6px;margin:0 0 28px}
+.article .summary h2{margin:0 0 10px;font-size:11px;font-family:var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--copper);font-weight:600}
+.article .summary li{font-size:17px}
+.chart{font-family:var(--sans);background:var(--paper-2);border-radius:6px;padding:16px 18px;margin:6px 0 26px;color:var(--ink-2);font-size:13px}
+.chart b{display:block;color:var(--ink-3);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.chart svg{display:block;width:100%;max-width:100%;height:auto;margin:8px 0 4px}
+.chart .src{color:var(--ink-3);font-size:12px}
+.note-source{font-family:var(--sans);font-size:13px;color:var(--ink-3);border-top:1px solid var(--rule);margin-top:40px;padding-top:14px}
+
+/* Highlights */
+mark.hl{background:var(--hl-key);color:inherit;border-bottom:2px solid var(--hl-key-line);padding:1px 0;cursor:pointer;border-radius:1px;transition:background .25s}
+mark.hl.hl-question{background:var(--hl-question);border-color:var(--hl-question-line)}
+mark.hl.hl-action{background:var(--hl-action);border-color:var(--hl-action-line)}
+mark.hl.has-note{position:relative}
+mark.hl.has-note::after{content:"";position:absolute;right:-2px;top:-5px;width:7px;height:7px;border-radius:50%;background:var(--ink);border:1.5px solid var(--paper)}
+mark.hl.flash{outline:3px solid var(--accent);outline-offset:1px}
+
+/* Floating selection toolbar */
+.seltool{position:absolute;z-index:20;display:flex;gap:4px;background:#000000;color:#ffffff;padding:6px;border-radius:8px;box-shadow:var(--shadow);transform:translate(-50%,-100%);margin-top:-10px}
+.seltool[hidden]{display:none}
+.seltool button{border:0;background:transparent;color:inherit;padding:6px 8px;border-radius:5px;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.seltool button:hover{background:rgba(255,255,255,.14)}
+.seltool i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.seltool .sep{width:1px;background:rgba(255,255,255,.25);margin:4px 2px}
+.seltool::after{content:"";position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);border:6px solid transparent;border-top-color:#000000;border-bottom:0}
+
+/* Note popover */
+.pop{position:absolute;z-index:21;width:min(340px,calc(100vw - 32px));background:var(--card);border:1px solid var(--rule);border-radius:8px;box-shadow:var(--shadow);padding:12px;font-family:var(--sans);font-size:13px}
+.pop[hidden]{display:none}
+.pop .quote{font-family:var(--serif);font-size:14px;color:var(--ink-2);border-left:3px solid var(--hl-key-line);padding-left:8px;margin:0 0 10px;max-height:70px;overflow:auto}
+.pop .colors{display:flex;gap:6px;margin-bottom:8px}
+.pop .colors button{width:28px;height:22px;border-radius:4px;border:2px solid transparent;padding:0}
+.pop .colors button[aria-pressed="true"]{border-color:var(--ink)}
+.pop textarea{width:100%;min-height:70px;resize:vertical;border:1px solid var(--rule);border-radius:5px;padding:8px;font:inherit;background:var(--paper);color:var(--ink)}
+.pop .row{display:flex;gap:8px;justify-content:space-between;margin-top:8px}
+.btn{border:1px solid var(--rule);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:5px;font-size:13px;font-weight:500}
+.btn.primary{background:var(--ink);color:#ffffff;border-color:var(--ink)}
+.btn.danger{color:var(--copper)}
+.btn:disabled{opacity:.5;cursor:default}
+
+/* Sidebar / sheet */
+.rail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 84px);align-self:start;max-height:calc(100vh - 110px);display:flex;flex-direction:column;min-width:0}
+.rail-head{display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.rail-head h3{margin:0;font-family:var(--serif);font-size:22px;font-weight:400;flex:1}
+.stats{display:flex;gap:14px;font-size:12px;color:var(--ink-3);padding:10px 0;font-variant-numeric:tabular-nums}
+.stats b{color:var(--ink);font-weight:600}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule)}
+.tabs button{border:0;background:transparent;color:var(--ink-3);padding:8px 10px;font-size:13px;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.panel{overflow:auto;flex:1;min-height:0;padding-top:10px}
+.panel[hidden]{display:none}
+.empty{color:var(--ink-3);font-size:13px;padding:24px 8px;text-align:center;line-height:1.5}
+.sec-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin:14px 0 6px;font-weight:600}
+.sec-label:first-child{margin-top:0}
+.card{display:block;width:100%;text-align:left;background:var(--paper-2);border:0;border-left:3px solid var(--hl-key-line);border-radius:6px;padding:10px 14px;margin-bottom:8px;color:inherit;cursor:pointer}
+.card.question{border-left-color:var(--hl-question-line)}
+.card.action{border-left-color:var(--hl-action-line)}
+.card:hover{background:#f3f4f6}
+.card .kind{display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:4px}
+.card q{font-family:var(--serif);font-size:14px;line-height:1.45;color:var(--ink-2);display:block;quotes:"\201C" "\201D"}
+.card .n{font-size:13px;line-height:1.45;margin-top:6px;display:block;color:var(--ink)}
+.card .ex{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--rule);border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:middle}
+.rail-foot{padding-top:10px;border-top:1px solid var(--rule);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rail-foot .hint{font-size:11px;color:var(--ink-3);flex-basis:100%}
+.linkbtn{border:0;background:none;color:var(--ink-3);font-size:12px;padding:0;text-decoration:underline}
+
+/* Takeaways */
+.take h4{font-size:11px;letter-spacing:.14px;letter-spacing:.14em;text-transform:uppercase;color:var(--copper);margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--rule);font-weight:600}
+.take h4:first-child{margin-top:0}
+.take ul{margin:0;padding-left:18px}
+.take li{margin-bottom:8px;font-size:14px;line-height:1.5}
+.take li .tshare{display:inline-block;margin-left:8px;border:0;background:none;color:var(--copper);font-size:11px;padding:0;cursor:pointer;vertical-align:baseline}
+.take li .tshare:hover{text-decoration:underline}
+.take p{margin:0 0 8px;font-size:13.5px}
+.take .thinking{color:var(--ink-3);font-style:italic}
+.take .meta{font-size:11px;color:var(--ink-3);margin-top:10px}
+.take-share{margin-top:16px;padding:14px;border:1px solid var(--rule);border-radius:8px;background:var(--paper-2)}
+.take-share h5{margin:0 0 4px;font-family:var(--serif);font-weight:400;font-size:18px;color:var(--ink)}
+.take-share p{margin:0 0 10px;font-size:12px;color:var(--ink-3)}
+.take-share .row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.take-share .row button{display:flex;align-items:center;gap:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);border-radius:6px;padding:9px 10px;font-size:13px;font-weight:500;text-align:left;cursor:pointer}
+.take-share .row button:hover{border-color:var(--ink-3)}
+.take-share .row button svg{width:18px;height:18px;flex:none}
+.take-share .all{margin-top:6px;width:100%;border:0;border-radius:6px;background:var(--ink);color:#fff;padding:10px;font-size:13px;font-weight:500;cursor:pointer}
+.dest .pulse{outline:2px solid var(--mint);outline-offset:2px;background:#f0fdf7}
+.take q{font-family:var(--serif);color:var(--ink-2)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#000000;color:#ffffff;padding:8px 14px;border-radius:6px;font-size:13px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* Mobile sheet */
+.sheet-btn{display:none}
+@media (max-width:860px){
+  .rail{position:fixed;left:0;right:0;bottom:0;top:auto;max-height:70vh;background:var(--card);border-top:1px solid var(--rule);border-radius:14px 14px 0 0;box-shadow:var(--shadow);
+    padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));transform:translateY(105%);transition:transform .25s;z-index:25}
+  .rail.open{transform:none}
+  .sheet-btn{display:inline-flex;position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:26;background:var(--ink);color:#ffffff;border:0;border-radius:999px;padding:11px 16px;font-weight:600;box-shadow:var(--shadow);gap:8px;align-items:center}
+  .sheet-btn .cnt{background:var(--mint);color:#000000;border-radius:999px;padding:0 7px;font-size:12px;font-variant-numeric:tabular-nums}
+}
+/* Share sheet */
+.card .share{float:right;border:0;background:none;color:var(--copper);font-size:11px;padding:0 0 0 8px;cursor:pointer}
+.card .share:hover{text-decoration:underline}
+.share-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40;display:flex;align-items:flex-end;justify-content:center;padding:0}
+.share-overlay[hidden]{display:none}
+.share-dlg{background:var(--card);color:var(--ink);width:100%;max-width:980px;max-height:92vh;overflow:auto;border-radius:14px 14px 0 0;box-shadow:var(--shadow);
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+@media (min-width:861px){ .share-overlay{align-items:center;padding:24px} .share-dlg{border-radius:12px;padding:22px 24px} }
+.share-dlg h3{margin:0 0 2px;font-family:var(--serif);font-size:24px;font-weight:400;display:flex;align-items:center;gap:10px}
+.share-dlg h3 button{margin-left:auto}
+.share-dlg .sub{font-size:12.5px;color:var(--ink-3);margin:0 0 14px}
+.share-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px}
+@media (max-width:860px){ .share-grid{grid-template-columns:minmax(0,1fr)} }
+.preview{background:var(--paper-2);border-radius:8px;padding:14px;display:flex;align-items:center;justify-content:center;min-width:0}
+.preview canvas{max-width:100%;height:auto;box-shadow:0 10px 30px rgba(0,0,0,.25);display:block}
+.ctl{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ctl label.f{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;display:block;margin-bottom:5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border:1px solid var(--rule);background:var(--card);color:var(--ink-2);border-radius:999px;padding:5px 11px;font-size:12.5px}
+.chips button[aria-pressed="true"]{background:var(--ink);color:#ffffff;border-color:var(--ink)}
+.ctl input[type=text],.ctl textarea{width:100%;border:1px solid var(--rule);border-radius:5px;padding:8px;font:inherit;background:var(--paper);color:var(--ink)}
+.ctl textarea{min-height:64px;resize:vertical;font-family:var(--serif);font-size:14px}
+.ctl .cnt{font-size:11px;color:var(--ink-3);text-align:right;font-variant-numeric:tabular-nums}
+.ctl .chk{display:flex;align-items:center;gap:8px;font-size:13px}
+.dest{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dest button,.dest a{display:flex;align-items:center;gap:9px;border:1px solid var(--rule);background:var(--card);color:var(--ink);border-radius:7px;padding:10px 12px;text-decoration:none;font-size:13px;text-align:left;cursor:pointer}
+.dest button:hover,.dest a:hover{border-color:var(--ink-3)}
+.dest svg{width:20px;height:20px;flex:none}
+.dest small{display:block;color:var(--ink-3);font-size:11px;font-weight:400}
+.dest b{font-weight:600;display:block}
+.dest .img{grid-column:1 / -1;display:flex;gap:8px}
+.dest .img button{flex:1}
+.draft{border:1px solid var(--rule);border-radius:7px;background:var(--paper);padding:10px;font-size:12.5px;white-space:pre-wrap;max-height:160px;overflow:auto;font-family:var(--mono)}
+.draft-wrap[hidden]{display:none}
+.draft-wrap .row{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;align-items:center}
+.sendform{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.sendform[hidden]{display:none}
+.sendform label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-top:4px}
+.sendform input,.sendform textarea{width:100%;box-sizing:border-box;border:1px solid var(--rule);border-radius:5px;padding:8px 10px;font:14px var(--sans);background:var(--paper-2);color:var(--ink)}
+.sendform textarea{min-height:120px;resize:vertical}
+.sendform .hint{flex:1;font-size:11px;color:var(--ink-3)}
+.steps{margin:0;padding:10px 10px 10px 28px;border:1px solid var(--rule);border-radius:7px;background:var(--paper);font-size:13px;line-height:1.5}
+.steps li{margin-bottom:4px}
+.steps li.done{color:var(--ink-3);text-decoration:line-through}
+.steps kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--rule);border-radius:3px;padding:0 4px;background:var(--card)}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+
+<header class="topbar">
+  <span class="brand">Asia Outlook Reader</span>
+  <span class="demo">Asia Strategy Focus · Aug 2026</span>
+  <span class="spacer"></span>
+  <div class="legend" aria-label="Highlight colours">
+    <span><i style="background:var(--hl-key);border-bottom:2px solid var(--hl-key-line)"></i>Key point</span>
+    <span><i style="background:var(--hl-question);border-bottom:2px solid var(--hl-question-line)"></i>Question</span>
+    <span><i style="background:var(--hl-action);border-bottom:2px solid var(--hl-action-line)"></i>Action</span>
+  </div>
+  <div class="progress" aria-hidden="true"><b id="prog"></b></div>
+</header>
+
+<div class="wrap">
+<main class="article" id="article">
+  <div class="kicker">Asia Strategy Focus · Investment Strategy</div>
+  <h1>2026 Asia Mid-Year Outlook</h1>
+  <p class="dek">From AI boom to energy resilience: the next phase of Asia's growth story</p>
+  <p class="byline">Yuxuan Tang, Cameron Chui and John Li · J.P. Morgan Private Bank · Published 6 Aug 2026 · Condensed reading edition of the <a href="https://privatebank.jpmorgan.com/apac/en/insights/markets-and-investing/asf/2026-asia-mid-year-outlook" target="_blank" rel="noopener">original article</a>. Select any passage to highlight it or add a note.</p>
+
+  <section class="summary" data-sec="Executive summary">
+    <h2 id="s0">Executive summary</h2>
+    <ul>
+      <li data-p="p0">Asia is a prime beneficiary of the global AI build-out, and the region's export surge should keep powering growth. How durable that is depends on where each country sits in the value chain and how broad its industrial base is.</li>
+      <li data-p="p1">The Iran conflict has been a stress test for a region full of large energy importers. Outcomes diverged widely according to pricing power, fiscal room and the health of external balances.</li>
+      <li data-p="p2">China's economy is increasingly K-shaped: exports carry growth while domestic demand lags behind an oil shock and a still-soft housing market. Reflation will be gradual because policy stays targeted rather than broad.</li>
+      <li data-p="p3">Japan is balancing fiscal sustainability against macro stability. Subsidies have contained inflation, but a weak yen and strains in the bond market are pushing policymakers toward action.</li>
+      <li data-p="p4">Investment opportunities remain across asset classes: equities in Korea, Taiwan, China and select Japanese sectors; Asian high-yield USD bonds; and selected currencies.</li>
+    </ul>
+  </section>
+
+  <section data-sec="Introduction">
+    <h2 id="s1"><small>Where Asia stands</small>A tale of two Asias</h2>
+    <p data-p="p5">The outlook published late last year flagged two things: Asia's export resilience in the face of tariff uncertainty, and its unique seat in the global AI supply chain. The first half of 2026 confirmed both, but with a twist. An AI-driven capex cycle lifted growth across much of the region, while escalation in the Middle East exposed the flip side: Asia hosts many of the world's largest net energy importers.</p>
+    <p data-p="p6">The backdrop now looks more constructive. Doubts about the longevity of the AI cycle are surfacing, yet the export tailwind should persist for economies with strategic positions in semiconductors and technology, and with oil apparently past its peak the energy drag should fade. The picture is far from uniform, though. Capital outflows, fiscal pressure, balance-of-payments strain and currency instability are shaping individual markets, which makes Asia increasingly a story of divergence.</p>
+  </section>
+
+  <section data-sec="Asia the exporter">
+    <h2 id="s2"><small>Exports</small>Asia the exporter: can the AI dividend last?</h2>
+    <p data-p="p7">Export exuberance is the dominant growth driver. AI-related capex has lifted demand for chips, memory, servers, networking gear and related electronics, offsetting tariff noise and muted consumer demand elsewhere. The gains are uneven: economies deep in the AI supply chain have benefited most, while those with limited AI exposure saw only a modest uplift.</p>
+    <p data-p="p8">Taiwan is heading for a second straight year of double-digit export growth on the back of advanced chip fabrication. Korea's export growth jumped from 8% last year to 54% in the first half, driven by tight supply in high-end memory. Japan gained through semiconductor equipment, precision machinery and automation. China remains central as a manufacturing and assembly hub for mature-node chips, optical components and power electronics, and Southeast Asia, led by Malaysia, Singapore and Vietnam, is attracting electronics manufacturing and data-centre investment. India, Indonesia and the Philippines, less integrated into the hardware chain, captured fewer gains.</p>
+    <div class="chart"><b>Chart 1 · Merchandise exports, year-on-year growth</b>East Asian economies on the AI hardware chain enjoyed a powerful export surge.
+      <svg viewBox="0 0 520 150" role="img" aria-label="Illustrative bar chart of first-half 2026 export growth: Korea 54%, Taiwan about 30%, Japan about 12%, China about 10%, India about 4%">
+        <g font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor">
+          <rect x="70" y="18" width="270" height="16" fill="var(--accent)"/><text x="10" y="30">Korea</text><text x="346" y="30">54%</text>
+          <rect x="70" y="42" width="150" height="16" fill="var(--accent)"/><text x="10" y="54">Taiwan</text><text x="226" y="54">~30%</text>
+          <rect x="70" y="66" width="60" height="16" fill="var(--accent)" opacity=".8"/><text x="10" y="78">Japan</text><text x="136" y="78">~12%</text>
+          <rect x="70" y="90" width="50" height="16" fill="var(--accent)" opacity=".8"/><text x="10" y="102">China</text><text x="126" y="102">~10%</text>
+          <rect x="70" y="114" width="20" height="16" fill="var(--accent)" opacity=".6"/><text x="10" y="126">India</text><text x="96" y="126">~4%</text>
+          <line x1="70" y1="12" x2="70" y2="136" stroke="var(--rule)"/>
+        </g>
+      </svg>
+      <span class="src">Illustrative, based on figures cited in the article. Sources: Haver Analytics, J.P. Morgan Private Bank. Data as of June 2026.</span></div>
+    <p data-p="p9">The authors believe the AI dividend is durable despite market volatility, for two reasons. First, position in the value chain matters: visibility on hyperscaler and cloud investment over the next one to two years is strong, so firm memory prices and compute demand should keep supporting Taiwan and Korea, while economies further from the frontier rely more on volume, assembly margins and incentives. Second, breadth of industrial diversification matters: concentrated economies are exposed to sector shocks, whereas broad manufacturing bases such as China and Japan are more resilient.</p>
+    <p data-p="p10">The deeper risk is that the AI boom reinforces K-shaped growth. The cycle is capital-intensive and its benefits cluster in firms, sectors and regions closest to the technological frontier, so strong exports and earnings may not translate into broad income gains or stronger domestic demand.</p>
+  </section>
+
+  <section data-sec="Asia the importer">
+    <h2 id="s3"><small>Energy</small>Asia the importer: faring through the oil shock</h2>
+    <p data-p="p11">With roughly 90% of oil passing through the Strait of Hormuz bound for Asia, the Middle East conflict exposed long-standing vulnerabilities rooted in scarce domestic energy and energy-intensive growth models. Higher prices hurt input costs, terms of trade, current accounts and, where subsidies expanded, fiscal balances.</p>
+    <p data-p="p12">Resilience varied. Korea and Taiwan leaned on strong industrial pricing power, with margins holding or even expanding on AI demand. Japan passed a sizeable supplementary budget to subsidise energy and limit inflation pass-through. India moved quickly to secure supply, diversify sourcing, cut import duties and expand subsidies. China was mixed: oil imports fell sharply as reserves were drawn down, yet parts of industry stayed weak as fuel price controls squeezed refiners and safety inspections disrupted coal output. In Southeast Asia, Singapore and Malaysia coped well thanks to fiscal buffers and low import dependence respectively, while Thailand and the Philippines slowed more and saw external balances deteriorate.</p>
+    <div class="chart"><b>Chart 2 · China crude oil imports, million tonnes</b>China sharply reduced its oil imports in Q2 2026. <span class="src">Sources: China General Customs, Haver Analytics. Data as of June 2026.</span></div>
+    <p data-p="p13">Looking ahead, country-specific factors will dominate. Japan and India could face growing fiscal strain if the conflict drags on. China's pressures should ease as energy prices settle, helped by a diversified energy mix. Across parts of South and Southeast Asia, however, balance-of-payments pressure may persist even after oil stabilises, pointing to deeper structural weaknesses.</p>
+  </section>
+
+  <section data-sec="China">
+    <h2 id="s4"><small>China</small>A widening K-shaped economy</h2>
+    <p data-p="p14">The constructive start-of-year view on China, built on export strength and early signs of domestic recovery, played out on the export side and then some, but the growth engine is lopsided: external demand is doing the heavy lifting while domestic activity struggles to keep pace.</p>
+    <p data-p="p15">Exports acted as the economy's locomotive in the first half. Post-Covid, China's export success has been volume-led, with the "new three" industries of solar, batteries and electric vehicles as the showcase; auto exports climbed from around one million units five years ago to nearly eight million, making China the world's largest car exporter. This year leadership broadened into AI-linked goods: machinery and electronics exports rose 20.1% year on year and made up 63.5% of total exports, with both volumes and prices rising in several categories. Memory chips illustrate the shift: Korea leads in cutting-edge products such as HBM, but China has matured in mainstream DRAM, and related exports grew roughly 86% in the first half, a meaningful part of it from higher prices rather than quantity alone.</p>
+    <p data-p="p16">Domestic demand, by contrast, is stuck in first gear. Five years into the property downturn, household confidence remains fragile; Tier-1 housing shows green shoots but national gauges are still falling. Retail sales grew just 1.3% in January to June, down from about 5% a year earlier. A new Five-Year Plan for Expanding Consumption targets RMB 60tn of retail sales by 2030, implying a cautious 3.7% annual pace; it is not a stimulus package, so the recovery is expected to be gradual and uneven.</p>
+    <p data-p="p17">Reflation remains an unfinished puzzle. The energy shock briefly pushed producer prices positive, but that was a supply effect rather than a fix for the underlying imbalance, and weak consumption limits the ability of mid- and downstream firms to pass on costs. For the second half and 2027, exports should remain the main driver, easing energy costs should support industry and profits, and policy support is expected to arrive through faster deployment of existing fiscal resources and fine-tuning PBoC easing rather than a large stimulus.</p>
+    <div class="chart"><b>Chart 3 · Economic activity indicators, indexed 2019 = 100</b>Exports and industrial output have pulled away from retail sales and property. <span class="src">Sources: China National Bureau of Statistics, Haver Analytics. Data as of June 2026.</span></div>
+  </section>
+
+  <section data-sec="Japan">
+    <h2 id="s5"><small>Japan</small>(Still) walking a tightrope</h2>
+    <p data-p="p18">Japan is balancing reflation, fiscal credibility and currency stability. The first-half fiscal agenda was shaped by the need to shield households from energy costs: gasoline subsidies were topped up from contingency reserves in March, and in June the government finalised a JPY 3.1tn supplementary budget, around USD 19bn, largely to replenish those reserves, alongside direct help with electricity and gas bills from July to September. Inflation gauges duly softened in Q2.</p>
+    <div class="chart"><b>Chart 4 · Japan CPI inflation measures, year-on-year</b>Government subsidies kept the energy shock from diverting Japan's disinflationary trend. <span class="src">Sources: Bank of Japan, MIC, Haver Analytics. Data as of June 2026.</span></div>
+    <p data-p="p19">Subsidies cap near-term inflation and support real incomes, but they complicate the fiscal picture: the extra budget is funded entirely by deficit bonds, the proposed food-tax cut is unlikely before next April, and the government is promising to avoid extra issuance by relying on stronger revenues. That is a delicate act while the BOJ normalises and JGB yields are sensitive to debt worries.</p>
+    <p data-p="p20">The BOJ could argue there is no urgency, since real wage growth is still muted. But USDJPY rose above 163 at the end of July, a 40-year high, breaking the watched 160 to 162 range. The root cause is deeply negative real short-term rates in Japan against rising U.S. real rates, compounded by the fiscal overhang. Excess yen weakness raises imported inflation, erodes purchasing power and risks being read as policy vulnerability, inviting outflows. Intervention, deployed at scale in late July, smooths disorderly moves but rarely changes the trend without a credible policy mix. The authors therefore expect Japanese authorities to accelerate rate hikes to break the loop of outflows and a falling currency.</p>
+    <div class="chart"><b>Chart 5 · Japan wages, nominal vs real, indexed 2020 = 100</b>Real wage growth is still muted. <span class="src">Sources: Bank of Japan, MIC, Haver Analytics. Data as of June 2026.</span></div>
+  </section>
+
+  <section data-sec="Australia">
+    <h2 id="s6"><small>Australia</small>What happens after front-loaded tightening</h2>
+    <p data-p="p21">The call last November that the RBA could be an early and possibly the most hawkish G10 hiker in 2026 has played out, with three consecutive hikes in the first half as inflation stayed sticky. The challenge now is balancing still-elevated, largely oil-imported inflation against a softer growth backdrop, slowing consumption and a weakening housing market.</p>
+    <p data-p="p22">Sentiment that had picked up in 2025 reversed. The May 2026 Budget introduced two major property-investor tax changes: negative gearing limited mainly to new-build homes, and the 50% capital gains discount replaced by cost-base indexation plus a 30% minimum rate. The aim is to curb speculative demand for existing housing and redirect capital toward new supply; national house prices fell 0.4% month on month in June, the largest drop since 2022. Consumers also absorbed higher fuel costs, since Australia, though the world's second-largest gas exporter, is a price taker on oil.</p>
+    <div class="chart"><b>Chart 6 · Westpac–Melbourne Institute consumer sentiment</b>Consumer sentiment plummeted from March. <span class="src">Data as of June 2026.</span></div>
+    <p data-p="p23">Against this backdrop the RBA is expected to stay on hold in the second half. Its June minutes flagged three risks: oil feeding through to inflation, persistently weak productivity, and a potentially material housing downturn following the tax overhaul. With inflation tracking the bank's Q2 forecast, these point to an on-hold decision in coming months.</p>
+  </section>
+
+  <section data-sec="India">
+    <h2 id="s7"><small>India</small>Can the structural growth story survive the AI era?</h2>
+    <p data-p="p24">India remains one of Asia's strongest structural stories, but the macro narrative has become harder. Years of reforms, corporate deleveraging, favourable demographics and a thriving IT sector have left fundamentals robust, yet momentum is fading, and investors are asking harder questions about India's place in the AI era and a tougher geopolitical backdrop.</p>
+    <p data-p="p25">The AI debate has two strands. First, India's technology ecosystem is concentrated in IT services, software and business-process outsourcing, which face disruption as generative AI automates previously outsourced work. Second, India is under-represented in the AI hardware chain, so it is less positioned to capture the capex boom benefiting its neighbours.</p>
+    <p data-p="p26">Geopolitics did not help. In August 2025 the U.S. imposed a 25% tariff on Indian goods, later raised to 50% over Russian oil purchases. Negotiations succeeded in February 2026, cutting reciprocal tariffs to 18% and removing the Russia-linked penalties, but the Iran conflict then delivered a fresh shock to the world's second-largest crude importer, which buys roughly 85 to 90% of its oil abroad. The result was heavy portfolio outflows despite resilient fundamentals, and the rupee fell about 12% against the dollar over twelve months.</p>
+    <p data-p="p27">Near-term momentum should improve, helped by the U.S.–India trade agreement, continued infrastructure spending and fiscal consolidation. The RBI may also face less pressure to tighten than peers, offering modest support to domestic financial conditions.</p>
+  </section>
+
+  <section data-sec="Southeast Asia">
+    <h2 id="s8"><small>ASEAN</small>Southeast Asia: a region of divergence</h2>
+    <p data-p="p28">ASEAN is no longer moving in lockstep. The divide runs between economies positioned to capture technology and capital inflows and those grappling with external financing pressure, weaker balance of payments or lost investor confidence.</p>
+    <p data-p="p29">Frontrunners: Singapore and Malaysia. Both are deeply integrated into the semiconductor and electronics chain and have delivered strong high-tech growth. Singapore's role as a financial hub keeps attracting capital, backed by fiscal buffers and institutional credibility. Malaysia benefits from sustained FDI into electronics and supply-chain relocation, and as a net energy exporter it was cushioned from the oil shock. These advantages are largely structural, so both should keep their lead.</p>
+    <p data-p="p30">Laggards: Indonesia, Thailand and the Philippines. Indonesia, long a favourite, saw a surprising collapse in investor confidence in 2026; outflows continue and the rupiah has yet to find a durable floor despite emergency rate hikes, and recovery of confidence may take considerable time given political uncertainty. Thailand faces a broad balance-of-payments squeeze from energy costs, softer tourism and thin foreign interest, with a sharply weaker current account and baht; its equity rally rested largely on a single AI-chain company. The Philippines is held back by energy vulnerability, weak investment, fiscal execution issues, infrastructure bottlenecks and a thin manufacturing base, with remittances the main support.</p>
+    <div class="chart"><b>Chart 7 · USD vs selected South and Southeast Asian currencies, indexed 1 Jan 2026 = 100</b>Divergent economic performance shows up in the FX market. <span class="src">Source: Bloomberg Finance L.P. Data as of 24 July 2026.</span></div>
+  </section>
+
+  <section data-sec="Asia equities">
+    <h2 id="s9"><small>Equities</small>Exceptional earnings growth to outweigh near-term volatility</h2>
+    <p data-p="p31">A positioning unwind across the AI infrastructure theme will keep Asian emerging-market equities volatile near term, but the fundamentals favour a positive stance on South Korea, Taiwan and China. Asia ex-Japan is in an AI infrastructure earnings super-cycle thanks to its grip on bottlenecks in logic, memory, networking and power, and compute remains in shortage. MSCI Asia ex-Japan earnings are expected to grow 50 to 55% in 2026 and 25 to 30% in 2027 at roughly 10.5x forward earnings; South Korea is expected to grow earnings 345 to 355% this year and 38 to 42% next, at just over 5x.</p>
+    <p data-p="p32">MSCI China has lagged this year but could do better in the second half. The macro recovery is underwhelming, yet the micro picture is improving: the food-delivery and fast-commerce price war is moderating faster than expected, stabilising earnings estimates, and agentic AI adoption is showing real progress. At 10.4x forward earnings, China is a useful counterweight to the chip-heavy Korean and Taiwanese markets.</p>
+    <p data-p="p33">Japan is a broadly neutral call with preferred pockets in banks, industrials and technology. A managed de-escalation in the Middle East should broaden performance into cyclicals and a moderately weaker yen helps earnings, but the bias toward BOJ hikes favours banks over the broad market, and TOPIX at 17x forward earnings looks rich against history.</p>
+  </section>
+
+  <section data-sec="Asia fixed income">
+    <h2 id="s10"><small>Credit</small>Carry remains king, with Asia high yield a preferred opportunity</h2>
+    <p data-p="p34">Asia credit outperformed broader fixed income in the first half, helped by short duration in investment grade and attractive carry in high yield. Carry should stay the dominant return driver in a higher-for-longer rates world: over the next twelve months total returns of roughly 5.0 to 5.5% for Asia IG and 7 to 8% for Asia HY are expected, supported by all-in yields and much healthier fundamentals than during the recent default cycle.</p>
+    <p data-p="p35">Asia high yield is singled out as one of the region's most compelling opportunities. After the record default wave, first-half total returns approached 4% with defaults near zero; yields of about 7.8%, stronger balance sheets and a friendlier refinancing backdrop should keep defaults contained, and a roughly 35bp yield premium over CEMBI HY supports relative-value demand. Preferred themes include Hong Kong real estate, Macau gaming, Japanese life insurers, and India and Indonesia USD credit. AUD-denominated investment-grade bonds yielding around 5.5 to 6.0% also look attractive now that the RBA's tightening is largely done.</p>
+    <div class="chart"><b>Chart 8 · Asia high yield default amount and default rate</b>The return of Asia high yield. <span class="src">Source: J.P. Morgan Private Bank. Data as of July 2026.</span></div>
+  </section>
+
+  <section data-sec="Asia FX">
+    <h2 id="s11"><small>Currencies</small>Diverging fundamentals, diverging currency paths</h2>
+    <p data-p="p36">Asia FX is increasingly a story of divergence. Differences in external balances, AI exposure, policy credibility and capital flows are producing distinct currency paths.</p>
+    <p data-p="p37">Moderate CNH appreciation into 2027 is expected, gradual and managed: strong exports have widened the current-account surplus and exporters are more willing to convert dollar proceeds into yuan. On JPY the stance is neutral, with USDJPY expected to hover around 160 as authorities prioritise stability; that assumes three to four BOJ hikes over twelve months taking policy rates to about 2%, and failure to follow through would leave the yen vulnerable. AUD is viewed constructively over the medium term on terms of trade and fiscal discipline, even as its carry edge narrows.</p>
+    <p data-p="p38">Caution remains on INR, where outflow pressure persists and limited AI participation constrains appeal, even if depreciation slows with measures such as the RBI's FCNR deposit scheme. Most ASEAN currencies warrant caution given outflows and external vulnerabilities, with SGD the exception: a MAS tightening bias, continued inflows and the managed exchange-rate regime should keep it resilient.</p>
+  </section>
+
+  <p class="note-source">This reading edition condenses and paraphrases the J.P. Morgan Private Bank article for demonstration purposes; figures are as cited there, with market data as of August 2026. It is not investment advice. Read the full original at privatebank.jpmorgan.com.</p>
+</main>
+
+<aside class="rail" id="rail" aria-label="Your notes">
+  <div class="rail-head">
+    <h3>Your reading</h3>
+    <button class="linkbtn" id="clearEx" hidden>Clear examples</button>
+    <button class="linkbtn" id="clearAll">Clear all</button>
+  </div>
+  <div class="stats"><span><b id="stHl">0</b> highlights</span><span><b id="stNotes">0</b> notes</span><span><b id="stProg">0%</b> read</span></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabNotes" aria-selected="true">Notes</button>
+    <button role="tab" id="tabTake" aria-selected="false">Takeaways</button>
+  </div>
+  <div class="panel" id="panelNotes"></div>
+  <div class="panel take" id="panelTake" hidden>
+    <div class="empty" id="takeEmpty">Generate key takeaways once you have finished reading. They are built from what you marked and the notes you wrote.</div>
+    <div id="takeOut"></div>
+  </div>
+  <div class="rail-foot">
+    <button class="btn primary" id="genBtn">Generate takeaways</button>
+    <button class="btn" id="stopBtn" hidden>Stop</button>
+    <button class="btn" id="copyBtn">Copy as Markdown</button>
+    <span class="hint" id="genHint"></span>
+  </div>
+</aside>
+</div>
+
+<button class="sheet-btn" id="sheetBtn" aria-controls="rail" aria-expanded="false">Notes <span class="cnt" id="sheetCnt">0</span></button>
+
+<div class="seltool" id="seltool" hidden role="toolbar" aria-label="Highlight selection">
+  <button data-color="key"><i style="background:var(--mint)"></i>Key</button>
+  <button data-color="question"><i style="background:var(--copper)"></i>Question</button>
+  <button data-color="action"><i style="background:#9ca3af"></i>Action</button>
+  <span class="sep"></span>
+  <button data-note="1">+ Note</button>
+</div>
+
+<div class="pop" id="pop" hidden>
+  <p class="quote" id="popQuote"></p>
+  <div class="colors" id="popColors">
+    <button data-color="key" style="background:var(--hl-key)" aria-label="Key point"></button>
+    <button data-color="question" style="background:var(--hl-question)" aria-label="Question"></button>
+    <button data-color="action" style="background:var(--hl-action)" aria-label="Action or idea"></button>
+  </div>
+  <label for="popNote" style="font-size:12px;color:var(--ink-3)">Your note</label>
+  <textarea id="popNote" placeholder="Why does this matter to you? A question, a follow-up, a disagreement…"></textarea>
+  <div class="row"><button class="btn danger" id="popDel">Remove</button><span><button class="btn" id="popShare">Share as tile</button> <button class="btn" id="popCancel">Cancel</button> <button class="btn primary" id="popSave">Save</button></span></div>
+</div>
+<div class="share-overlay" id="shareOverlay" hidden>
+  <div class="share-dlg" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <h3 id="shareTitle">Share this takeaway <button class="btn" id="shareClose" aria-label="Close">Close</button></h3>
+    <p class="sub" id="shareSub">Turn what you marked into a tile for your network. Edit the wording, pick a look, then choose where it goes.</p>
+    <div class="share-grid">
+      <div class="preview"><canvas id="tileCanvas" width="1080" height="1080" aria-label="Preview of the social tile"></canvas></div>
+      <div class="ctl">
+        <div><label class="f">Look</label><div class="chips" id="styleChips">
+          <button data-style="card" aria-pressed="true">Light card</button><button data-style="cardDark">Dark card</button><button data-style="statement">Statement</button><button data-style="market">Market note</button></div></div>
+        <div><label class="f">Format</label><div class="chips" id="fmtChips">
+          <button data-fmt="square" aria-pressed="true">Square · LinkedIn, WhatsApp</button><button data-fmt="portrait">Portrait 4:5 · Instagram feed</button><button data-fmt="story">Story 9:16</button><button data-fmt="wide">Wide · Email header</button></div></div>
+        <div><label class="f" for="tileLabel">Label</label><input type="text" id="tileLabel" maxlength="28" value="KEY TAKEAWAY"></div>
+        <div><label class="f" for="tileText">Takeaway</label><textarea id="tileText" maxlength="220"></textarea><div class="cnt" id="tileCnt">0 / 220</div></div>
+        <label class="chk"><input type="checkbox" id="tileNote"> Add my note as a comment on the tile</label>
+        <div><label class="f" for="tileName">Shared by (optional)</label><input type="text" id="tileName" maxlength="40" placeholder="Your name"></div>
+        <div><label class="f">Send to <span id="svcStatus" style="float:right;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-3)"></span></label>
+          <div class="dest">
+            <a id="dWhatsApp" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20l1.3-3.8A8 8 0 1 1 8.2 19.1L4 20z"/><path d="M9.5 9c.2 1.8 2 3.6 3.8 3.9l1.1-1.1 1.6.7-.3 1.4c-2.7.8-6.8-3.3-6-6l1.4-.3.7 1.6L9.5 9z"/></svg><span><b>WhatsApp</b><small>Text and link open; tile copied for you to paste</small></span></a>
+            <a id="dLinkedIn" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 10v7M8 7v.5M12 17v-4a2 2 0 0 1 4 0v4M12 10v7"/></svg><span><b>LinkedIn</b><small>Post text prefilled; tile copied for you to paste</small></span></a>
+            <a id="dInstagram" href="https://www.instagram.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg><span><b>Instagram</b><small>Tile saved, caption copied for you to paste</small></span></a>
+            <button id="dColleague"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span><b>Email colleagues</b><small>Draft ready; tile pasted or attached by you</small></span></button>
+            <button id="dAdvisor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M4 20c0-3.5 3.6-6 8-6s8 2.5 8 6"/></svg><span><b>Email my advisor</b><small>Draft asks how it applies to you</small></span></button>
+            <div class="img"><button id="dSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></svg><span><b>Save image</b><small>PNG for any app</small></span></button>
+              <button id="dCopyImg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span><b>Copy image</b><small>Paste into a post</small></span></button></div>
+          </div></div>
+        <div class="draft-wrap" id="stepsWrap" hidden>
+          <label class="f" id="stepsLabel">Next steps</label>
+          <ol class="steps" id="stepsList"></ol>
+        </div>
+        <div class="draft-wrap" id="draftWrap" hidden>
+          <label class="f" id="draftLabel">Email draft</label>
+          <div class="sendform" id="sendForm" hidden>
+            <label for="sendTo">To</label><input type="text" id="sendTo" placeholder="name@example.com, another@example.com" autocomplete="email">
+            <label for="sendSubject">Subject</label><input type="text" id="sendSubject">
+            <label for="sendBody">Message</label><textarea id="sendBody"></textarea>
+            <div class="row"><span class="hint" id="sendHint">The tile is embedded in the email and attached as a PNG.</span><button class="btn primary" id="sendBtn">Send with tile</button></div>
+          </div>
+          <div class="draft" id="draftBox"></div>
+          <div class="row"><a class="btn" id="draftMail" href="#">Open in Mail</a><button class="btn primary" id="draftCopy">Copy draft</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+const KEY='asia-outlook-reader-v1';
+const COLORS={key:'Key point',question:'Question',action:'Action / idea'};
+const article=document.getElementById('article');
+const paras=[...article.querySelectorAll('[data-p]')];
+const paraIndex=Object.fromEntries(paras.map((p,i)=>[p.dataset.p,i]));
+let state={highlights:[]};
+
+// ---------- persistence ----------
+function load(){ try{ const s=JSON.parse(localStorage.getItem(KEY)); if(s&&Array.isArray(s.highlights)) state=s; else seed(); }catch(e){ seed(); } }
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
+function seed(){
+  const ex=[
+    {p:'p8',find:'Korea\'s export growth jumped from 8% last year to 54% in the first half',color:'key',note:'Memory tightness is the real driver here. Worth checking HBM capacity additions for 2027.'},
+    {p:'p10',find:'strong exports and earnings may not translate into broad income gains or stronger domestic demand',color:'question',note:'Does this argue against the consumer names in my Asia allocation?'},
+    {p:'p35',find:'yields of about 7.8%',color:'action',note:'Compare against our current Asia HY sleeve; ask for the issuer list behind the 35bp premium.'}
+  ];
+  state={highlights:[]};
+  ex.forEach(e=>{ const para=article.querySelector('[data-p="'+e.p+'"]'); const t=para.textContent; const i=t.indexOf(e.find); if(i<0)return;
+    state.highlights.push({id:'ex'+Math.random().toString(36).slice(2,8),p:e.p,start:i,end:i+e.find.length,color:e.color,note:e.note,text:e.find,example:true}); });
+}
+
+// ---------- DOM helpers ----------
+function sectionOf(p){ const s=p.closest('[data-sec]'); return s?s.dataset.sec:''; }
+function offsetIn(para,node,off){ const r=document.createRange(); r.selectNodeContents(para); r.setEnd(node,off); return r.toString().length; }
+function wrapRange(para,start,end,h){
+  const w=document.createTreeWalker(para,NodeFilter.SHOW_TEXT); let pos=0,n; const parts=[];
+  while((n=w.nextNode())){ const len=n.data.length,s=Math.max(start,pos),e=Math.min(end,pos+len); if(s<e) parts.push({n,s:s-pos,e:e-pos}); pos+=len; }
+  parts.forEach(({n,s,e})=>{ let t=n; if(e<t.data.length) t.splitText(e); if(s>0) t=t.splitText(s);
+    const m=document.createElement('mark'); m.className='hl hl-'+h.color+(h.note?' has-note':''); m.dataset.id=h.id; m.title=COLORS[h.color]+(h.note?' · '+h.note:''); t.parentNode.insertBefore(m,t); m.appendChild(t); });
+}
+function unwrap(id){ article.querySelectorAll('mark[data-id="'+id+'"]').forEach(m=>{ const p=m.parentNode; while(m.firstChild) p.insertBefore(m.firstChild,m); p.removeChild(m); }); paras.forEach(p=>p.normalize()); }
+function renderAll(){ article.querySelectorAll('mark.hl').forEach(m=>{const p=m.parentNode;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);}); paras.forEach(p=>p.normalize());
+  sorted().forEach(h=>{ const para=article.querySelector('[data-p="'+h.p+'"]'); if(para) wrapRange(para,h.start,h.end,h); }); renderRail(); }
+function sorted(){ return [...state.highlights].sort((a,b)=>(paraIndex[a.p]-paraIndex[b.p])||(a.start-b.start)); }
+function byId(id){ return state.highlights.find(h=>h.id===id); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+
+// ---------- rail ----------
+const panelNotes=document.getElementById('panelNotes');
+function renderRail(){
+  const hs=sorted(); const notes=hs.filter(h=>h.note&&h.note.trim()).length;
+  document.getElementById('stHl').textContent=hs.length; document.getElementById('stNotes').textContent=notes; document.getElementById('sheetCnt').textContent=hs.length;
+  document.getElementById('clearEx').hidden=!hs.some(h=>h.example);
+  panelNotes.innerHTML='';
+  if(!hs.length){ panelNotes.innerHTML='<div class="empty">Nothing marked yet. Select a passage in the article to highlight it, then add a note.</div>'; return; }
+  let cur=null;
+  hs.forEach(h=>{ const para=article.querySelector('[data-p="'+h.p+'"]'); const sec=sectionOf(para);
+    if(sec!==cur){ cur=sec; const l=document.createElement('div'); l.className='sec-label'; l.textContent=sec; panelNotes.appendChild(l); }
+    const c=document.createElement('div'); c.className='card '+h.color; c.dataset.id=h.id; c.tabIndex=0; c.setAttribute('role','button');
+    const sh=document.createElement('button'); sh.className='share'; sh.textContent='Share'; sh.title='Share as a social tile'; sh.addEventListener('click',e=>{ e.stopPropagation(); openShare(h.id); }); c.appendChild(sh); const k=document.createElement('span'); k.className='kind'; k.textContent=COLORS[h.color]; c.appendChild(k);
+    const q=document.createElement('q'); q.textContent=h.text.length>170?h.text.slice(0,168)+'…':h.text; c.appendChild(q);
+    if(h.note&&h.note.trim()){ const n=document.createElement('span'); n.className='n'; n.textContent=h.note; c.appendChild(n); }
+    if(h.example){ const e=document.createElement('span'); e.className='ex'; e.textContent='Example'; c.appendChild(e); }
+    c.addEventListener('click',()=>{ jumpTo(h.id); }); c.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); jumpTo(h.id);} });
+    panelNotes.appendChild(c); });
+}
+function jumpTo(id){ const m=article.querySelector('mark[data-id="'+id+'"]'); if(!m)return; closeSheet(); m.scrollIntoView({behavior:'smooth',block:'center'}); m.classList.add('flash'); setTimeout(()=>m.classList.remove('flash'),1400); setTimeout(()=>openPop(id,m),450); }
+
+// ---------- selection toolbar ----------
+const seltool=document.getElementById('seltool'); let pendingRange=null;
+function hideTool(){ seltool.hidden=true; pendingRange=null; }
+function checkSelection(){
+  const sel=window.getSelection(); if(!sel||sel.isCollapsed||!sel.rangeCount){ hideTool(); return; }
+  const r=sel.getRangeAt(0); const a=r.startContainer.nodeType===3?r.startContainer.parentNode:r.startContainer;
+  const pa=a.closest&&a.closest('[data-p]'); if(!pa||!article.contains(pa)){ hideTool(); return; }
+  const txt=r.toString().trim(); if(txt.length<2){ hideTool(); return; }
+  pendingRange=r.cloneRange();
+  const rect=r.getBoundingClientRect(); seltool.hidden=false;
+  seltool.style.left=(rect.left+rect.width/2+window.scrollX)+'px'; seltool.style.top=(rect.top+window.scrollY)+'px';
+}
+document.addEventListener('selectionchange',()=>{ clearTimeout(window._selT); window._selT=setTimeout(checkSelection,180); });
+document.addEventListener('mousedown',e=>{ if(!seltool.contains(e.target)&&!pop.contains(e.target)&&!e.target.closest('mark.hl')) { if(!pop.hidden) closePop(); } });
+function createFromSelection(color,withNote){
+  if(!pendingRange)return; const r=pendingRange;
+  const a=r.startContainer.nodeType===3?r.startContainer.parentNode:r.startContainer; const para=a.closest('[data-p]');
+  const start=offsetIn(para,r.startContainer,r.startOffset);
+  let end; const b=r.endContainer.nodeType===3?r.endContainer.parentNode:r.endContainer; const pb=b.closest&&b.closest('[data-p]');
+  end=(pb===para)?offsetIn(para,r.endContainer,r.endOffset):para.textContent.length;
+  if(end-start<2)return;
+  const full=para.textContent; const text=full.slice(start,end).replace(/\s+/g,' ').trim();
+  const h={id:'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),p:para.dataset.p,start,end,color,note:'',text};
+  state.highlights.push(h); save(); window.getSelection().removeAllRanges(); hideTool(); renderAll();
+  if(pb!==para) toast('Highlight clipped to the end of the paragraph');
+  if(withNote){ const m=article.querySelector('mark[data-id="'+h.id+'"]'); openPop(h.id,m,true); }
+}
+seltool.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; if(b.dataset.note) createFromSelection('key',true); else createFromSelection(b.dataset.color,false); });
+
+// ---------- popover ----------
+const pop=document.getElementById('pop'), popQuote=document.getElementById('popQuote'), popNote=document.getElementById('popNote'), popColors=document.getElementById('popColors');
+let popId=null;
+function openPop(id,anchor,focus){ const h=byId(id); if(!h)return; popId=id; popQuote.textContent=h.text; popNote.value=h.note||'';
+  popColors.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.color===h.color)));
+  popQuote.style.borderColor='var(--hl-'+h.color+'-line)';
+  pop.hidden=false; const rect=anchor.getBoundingClientRect(); const w=pop.offsetWidth;
+  let left=rect.left+window.scrollX; left=Math.min(left,document.documentElement.clientWidth-w-16); left=Math.max(16,left);
+  pop.style.left=left+'px'; pop.style.top=(rect.bottom+window.scrollY+8)+'px'; hideTool(); if(focus) popNote.focus(); }
+function closePop(){ pop.hidden=true; popId=null; }
+article.addEventListener('click',e=>{ const m=e.target.closest('mark.hl'); if(m){ e.preventDefault(); window.getSelection().removeAllRanges(); openPop(m.dataset.id,m,false);} });
+popColors.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b||!popId)return; const h=byId(popId); h.color=b.dataset.color; popColors.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); popQuote.style.borderColor='var(--hl-'+h.color+'-line)'; });
+document.getElementById('popSave').addEventListener('click',()=>{ const h=byId(popId); if(h){ h.note=popNote.value.trim(); delete h.example; save(); renderAll(); toast(h.note?'Note saved':'Highlight saved'); } closePop(); });
+document.getElementById('popCancel').addEventListener('click',()=>{ renderAll(); closePop(); });
+document.getElementById('popDel').addEventListener('click',()=>{ state.highlights=state.highlights.filter(h=>h.id!==popId); save(); renderAll(); closePop(); toast('Highlight removed'); });
+popNote.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') document.getElementById('popSave').click(); if(e.key==='Escape') closePop(); });
+document.getElementById('clearAll').addEventListener('click',()=>{ if(!state.highlights.length)return; state.highlights=[]; save(); renderAll(); closePop(); clearTake(); toast('Cleared'); });
+document.getElementById('clearEx').addEventListener('click',()=>{ state.highlights=state.highlights.filter(h=>!h.example); save(); renderAll(); toast('Examples cleared'); });
+
+// ---------- tabs & sheet ----------
+const tabNotes=document.getElementById('tabNotes'),tabTake=document.getElementById('tabTake'),pNotes=document.getElementById('panelNotes'),pTake=document.getElementById('panelTake');
+function showTab(t){ const take=t==='take'; tabNotes.setAttribute('aria-selected',String(!take)); tabTake.setAttribute('aria-selected',String(take)); pNotes.hidden=take; pTake.hidden=!take; }
+tabNotes.addEventListener('click',()=>showTab('notes')); tabTake.addEventListener('click',()=>showTab('take'));
+const rail=document.getElementById('rail'),sheetBtn=document.getElementById('sheetBtn');
+function closeSheet(){ rail.classList.remove('open'); sheetBtn.setAttribute('aria-expanded','false'); }
+sheetBtn.addEventListener('click',()=>{ const o=rail.classList.toggle('open'); sheetBtn.setAttribute('aria-expanded',String(o)); });
+
+// ---------- progress ----------
+function progress(){ const top=article.getBoundingClientRect().top+window.scrollY, h=article.offsetHeight; const seen=(window.scrollY+window.innerHeight-top)/h; const pct=Math.max(0,Math.min(1,seen)); document.getElementById('prog').style.width=(pct*100)+'%'; document.getElementById('stProg').textContent=Math.round(pct*100)+'%'; return pct; }
+window.addEventListener('scroll',progress,{passive:true}); window.addEventListener('resize',progress);
+
+// ---------- takeaways ----------
+const takeOut=document.getElementById('takeOut'),takeEmpty=document.getElementById('takeEmpty'),genBtn=document.getElementById('genBtn'),stopBtn=document.getElementById('stopBtn'),genHint=document.getElementById('genHint');
+let sampleFn=null, ctl=null, lastMarkdown='';
+(async()=>{ try{ if(window.claude&&claude.use) sampleFn=await claude.use('sample'); }catch(e){ sampleFn=null; }
+  genHint.textContent=sampleFn?'Synthesised by Claude from your marks and notes.':'Compiled locally from your marks and notes.'; })();
+function clearTake(){ takeOut.innerHTML=''; takeEmpty.hidden=false; lastMarkdown=''; }
+function notesDigest(){ return sorted().map(h=>{ const para=article.querySelector('[data-p="'+h.p+'"]'); return {section:sectionOf(para),kind:COLORS[h.color],passage:h.text,note:(h.note||'').trim()}; }); }
+function renderMd(md){ // tiny renderer: ## headings, - bullets, paragraphs; bullets in the synthesis get a Share button
+  const out=[]; let list=null, section=''; const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const inline=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/"([^"]{8,})"/g,'<q>$1</q>');
+  const kindFor=h=>/question/i.test(h)?'question':/action|idea/i.test(h)?'action':'key';
+  md.split('\n').forEach(line=>{ const l=line.trim(); if(/^#{1,3}\s/.test(l)){ if(list){out.push('</ul>');list=null;} section=l.replace(/^#+\s*/,''); out.push('<h4>'+inline(section)+'</h4>'); }
+    else if(/^[-*•]\s/.test(l)||/^\d+[.)]\s/.test(l)){ if(!list){out.push('<ul>');list=true;} const body=l.replace(/^([-*•]|\d+[.)])\s*/,''); const shareable=!/^all highlights/i.test(section)&&!/^sections you focused/i.test(section)&&!/^themes/i.test(section)&&!/^\[/.test(body);
+      out.push('<li>'+inline(body)+(shareable?' <button class="tshare" data-text="'+esc(body.replace(/\*\*/g,'')).replace(/"/g,'&quot;')+'" data-kind="'+kindFor(section)+'">Share</button>':'')+'</li>'); }
+    else if(l){ if(list){out.push('</ul>');list=null;} out.push('<p>'+inline(l)+'</p>'); } });
+  if(list)out.push('</ul>'); return out.join(''); }
+function localTakeaways(d){
+  const secs=[...new Set(d.map(x=>x.section))]; let md='## Key takeaways\n';
+  d.filter(x=>x.kind==='Key point').forEach(x=>md+='- '+x.passage+(x.note?' — '+x.note:'')+'\n');
+  if(!d.some(x=>x.kind==='Key point')) md+='- No passages marked as key points yet.\n';
+  const qs=d.filter(x=>x.kind==='Question'); if(qs.length){ md+='\n## Open questions\n'; qs.forEach(x=>md+='- '+(x.note||x.passage)+'\n'); }
+  const as=d.filter(x=>x.kind==='Action / idea'); if(as.length){ md+='\n## Actions and ideas\n'; as.forEach(x=>md+='- '+(x.note||x.passage)+'\n'); }
+  md+='\n## Sections you focused on\n'+secs.map(s=>'- '+s+' ('+d.filter(x=>x.section===s).length+')').join('\n')+'\n';
+  return md; }
+function allNotesMd(d){ let md='\n## All highlights and notes\n'; let cur=null; d.forEach(x=>{ if(x.section!==cur){cur=x.section; md+='\n### '+cur+'\n';} md+='- ['+x.kind+'] "'+x.passage+'"'+(x.note?'\n  Note: '+x.note:'')+'\n'; }); return md; }
+async function generate(){
+  const d=notesDigest(); if(!d.length){ showTab('take'); takeEmpty.textContent='Highlight a few passages first, then generate takeaways.'; return; }
+  showTab('take'); takeEmpty.hidden=true; genBtn.disabled=true;
+  const header='# 2026 Asia Mid-Year Outlook — my takeaways\n';
+  if(!sampleFn){ const md=localTakeaways(d)+allNotesMd(d); lastMarkdown=header+md; takeOut.innerHTML=renderMd(md)+'<div class="meta">Compiled locally from '+d.length+' highlights. Open this page in Claude to get a written synthesis.</div>'+shareRow(); genBtn.disabled=false; return; }
+  takeOut.innerHTML='<p class="thinking">Reading your highlights and notes…</p>'; stopBtn.hidden=false; ctl=new AbortController();
+  const prompt='You are helping a reader synthesise what they marked while reading "2026 Asia Mid-Year Outlook" by J.P. Morgan Private Bank (Asia Strategy Focus, Aug 2026). The article argues Asia is diverging: AI-hardware exporters (Korea, Taiwan, Japan, China, Singapore, Malaysia) are booming while energy importers with weak external balances (India, Indonesia, Thailand, Philippines) struggle; China is K-shaped; Japan faces a weak yen and fiscal strain; the RBA is on hold; the house prefers Korea/Taiwan/China equities, Asia high yield credit, CNH, AUD and SGD, and is cautious on INR and most ASEAN FX.\n\nBelow are the reader\'s highlights. Each has a kind (Key point, Question, or Action / idea), the section, the highlighted passage, and the reader\'s own note where they wrote one. Weight the reader\'s notes heavily: the takeaways should reflect what THEY found important, not a generic summary.\n\n'+JSON.stringify(d,null,1)+'\n\nWrite in plain Markdown using exactly these sections, each a "## " heading: "Key takeaways" (3-6 bullets, each one tight sentence, in the reader\'s interest order), "Open questions" (bullets turning their Question marks and any doubts in their notes into sharp questions to follow up; omit the section if none), "Actions and ideas" (bullets from their Action marks and notes; omit if none), then "Themes across your notes" (2-3 bullets naming the threads connecting what they marked). Use "- " bullets, no tables, no preamble, no closing remarks, under 300 words.';
+  let text='';
+  try{ const res=await sampleFn(prompt,{signal:ctl.signal,modelTier:'default',cache:false,onText:({text:t})=>{ text=t; takeOut.innerHTML=renderMd(t); }});
+    text=res.text; const md=text+'\n'+allNotesMd(d); lastMarkdown=header+md; takeOut.innerHTML=renderMd(md)+'<div class="meta">Synthesised from '+d.length+' highlights'+(res.truncated?' · cut short, try fewer highlights':'')+'.</div>'+shareRow();
+  }catch(e){ const code=e&&e.code; if(code==='cancelled'){ takeOut.innerHTML=renderMd((e.text||'')+'\n'+allNotesMd(d))+'<div class="meta">Stopped.</div>'; }
+    else if(code==='not_granted'||code==='sampling_disabled'||code==='not_declared'||code==='capability_disabled'){ sampleFn=null; genHint.textContent='Compiled locally from your marks and notes.'; const md=localTakeaways(d)+allNotesMd(d); lastMarkdown=header+md; takeOut.innerHTML=renderMd(md)+'<div class="meta">Claude is not available for this page, so this is compiled from your marks.</div>'+shareRow(); }
+    else { const md=(e&&e.text?e.text+'\n':'')+localTakeaways(d)+allNotesMd(d); lastMarkdown=header+md; takeOut.innerHTML=renderMd(md)+'<div class="meta">'+(code==='rate_limited'?'Claude is busy right now; compiled locally instead. Try again in a moment.':'Could not reach Claude; compiled locally instead.')+'</div>'+shareRow(); } }
+  finally{ genBtn.disabled=false; stopBtn.hidden=true; ctl=null; }
+}
+genBtn.addEventListener('click',generate);
+stopBtn.addEventListener('click',()=>{ if(ctl) ctl.abort(); });
+document.getElementById('copyBtn').addEventListener('click',async()=>{ const d=notesDigest(); if(!d.length){ toast('Nothing to copy yet'); return; }
+  const md=lastMarkdown||('# 2026 Asia Mid-Year Outlook — my notes\n'+allNotesMd(d));
+  try{ await navigator.clipboard.writeText(md); toast('Copied as Markdown'); }catch(e){ const ta=document.createElement('textarea'); ta.value=md; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); toast('Copied as Markdown'); }catch(_){ toast('Select and copy manually'); } document.body.removeChild(ta); } });
+
+// ---------- social tile ----------
+const ARTICLE_URL='https://privatebank.jpmorgan.com/apac/en/insights/markets-and-investing/asf/2026-asia-mid-year-outlook';
+// Tile-link service: when the page is hosted alongside the service (or ?svc=https://host is given), each tile gets a short link whose preview card IS the tile.
+const SHARE_SVC=(function(){ const q=new URLSearchParams(location.search).get('svc'); if(q) return q.replace(/\/$/,''); if(location.protocol==='https:'&&!window.claude&&!/claude\.ai$/.test(location.hostname)) return location.origin; return ''; })();
+let hostedUrl=null, hostedKey='', hostedTimer=null, hostedBusy=false;
+const ARTICLE_TITLE='2026 Asia Mid-Year Outlook';
+const SOURCE_LINE='Source: J.P. Morgan Private Bank, Asia Strategy Focus · Aug 2026';
+const BRAND={copper:'#9a6a3c',copperLight:'#b8895a',charcoal:'#3d4148',charcoalDeep:'#2b2e33',mint:'#4fe3a6',grey:'#e9ebee',cream:'#f7f5f0',ink:'#1e1f22',white:'#ffffff',mute:'#6b6f77'};
+const FMTS={square:[1080,1080],portrait:[1080,1350],story:[1080,1920],wide:[1200,628]};
+const tile={style:'card',fmt:'square',label:'KEY TAKEAWAY',text:'',note:'',useNote:false,name:'',color:'key'};
+const cvs=document.getElementById('tileCanvas'), ctx=cvs.getContext('2d');
+let downloadsFn=null; (async()=>{ try{ if(window.claude&&claude.use) downloadsFn=await claude.use('downloads'); }catch(e){} })();
+let fontsReady=false; const fontsP=(document.fonts?Promise.all([document.fonts.load('600 20px "IBM Plex Sans Condensed"'),document.fonts.load('400 20px "Archivo"')]):Promise.resolve()).then(()=>{fontsReady=true;}).catch(()=>{fontsReady=true;});
+
+function wrap(text,maxW){ const words=text.split(/\s+/); const lines=[]; let line=''; words.forEach(w=>{ const t=line?line+' '+w:w; if(ctx.measureText(t).width>maxW&&line){ lines.push(line); line=w; } else line=t; }); if(line)lines.push(line); return lines; }
+function fit(text,maxW,maxH,family,weight,maxSize,minSize,lh,style){ for(let s=maxSize;s>=minSize;s-=2){ ctx.font=(style||'normal')+' '+weight+' '+s+'px '+family; const lines=wrap(text,maxW); if(lines.length*s*lh<=maxH) return {size:s,lines}; } ctx.font=(style||'normal')+' '+weight+' '+minSize+'px '+family; return {size:minSize,lines:wrap(text,maxW)}; }
+function drawLines(lines,x,y,size,lh,color){ ctx.fillStyle=color; lines.forEach((l,i)=>ctx.fillText(l,x,y+i*size*lh)); return y+lines.length*size*lh; }
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function pill(label,x,y,scale){ ctx.font='600 '+Math.round(22*scale)+'px "IBM Plex Sans Condensed", Amplitude, "Archivo", Arial, sans-serif'; if('letterSpacing' in ctx) ctx.letterSpacing=(2*scale)+'px'; const w=ctx.measureText(label).width+44*scale, h=40*scale; ctx.fillStyle=BRAND.copper; rr(x,y,w,h,h/2); ctx.fill(); ctx.fillStyle=BRAND.white; ctx.textBaseline='middle'; ctx.fillText(label,x+22*scale,y+h/2+1); ctx.textBaseline='alphabetic'; if('letterSpacing' in ctx) ctx.letterSpacing='0px'; return h; }
+function icon(x,y,s,color){ // simple line chart glyph in the carousel's outline style
+  ctx.strokeStyle=color; ctx.lineWidth=3*s; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.strokeRect(x,y,150*s,110*s); ctx.beginPath(); ctx.moveTo(x+20*s,y+85*s); ctx.lineTo(x+55*s,y+55*s); ctx.lineTo(x+85*s,y+70*s); ctx.lineTo(x+130*s,y+25*s); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x+130*s,y+25*s,6*s,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); ctx.beginPath(); ctx.moveTo(x+45*s,y+125*s); ctx.lineTo(x+105*s,y+125*s); ctx.stroke(); }
+function dots(x,y,s,color,lineColor,w){ for(let i=0;i<4;i++){ ctx.beginPath(); ctx.arc(x+i*38*s,y,10*s,0,Math.PI*2); if(i===0){ctx.fillStyle=color;ctx.fill();} else {ctx.strokeStyle=lineColor;ctx.lineWidth=2*s;ctx.stroke();} } ctx.beginPath(); ctx.moveTo(x+3*38*s+14*s,y); ctx.lineTo(x+w,y); ctx.strokeStyle=lineColor; ctx.lineWidth=2*s; ctx.stroke(); }
+function mintBar(W,s){ ctx.fillStyle=BRAND.mint; ctx.fillRect(W*0.11,0,W*0.26,26*s); }
+function footer(W,H,s,color,x){ ctx.font='400 '+Math.round(20*s)+'px Amplitude, "Archivo", Arial, sans-serif'; ctx.fillStyle=color; const by=tile.name?('Shared by '+tile.name+' · '):''; ctx.fillText(by+SOURCE_LINE,x,H-44*s); }
+
+let tileFile=null, tileTimer=null;
+function refreshTileFile(){ clearTimeout(tileTimer); tileTimer=setTimeout(()=>{ cvs.toBlob(b=>{ if(b) tileFile=new File([b],'asia-outlook-takeaway-'+tile.fmt+'.png',{type:'image/png'}); },'image/png'); },150); }
+function drawItems(items,x,y,maxW,maxH,color,s,fam){ // numbered list that shares one type size
+  const gap=18*s, numW=52*s; let size=Math.round(46*s), minSize=Math.round(22*s), wrapped=[];
+  for(;size>=minSize;size-=2){ ctx.font='400 '+size+'px '+fam; wrapped=items.map(t=>wrap(t,maxW-numW)); const h=wrapped.reduce((a,l)=>a+l.length*size*1.18,0)+gap*(items.length-1); if(h<=maxH) break; }
+  ctx.font='400 '+size+'px '+fam; let yy=y+size*0.85;
+  wrapped.forEach((lines,i)=>{ ctx.fillStyle=BRAND.copperLight; ctx.fillText(String(i+1),x,yy); ctx.fillStyle=color; lines.forEach((l,j)=>ctx.fillText(l,x+numW,yy+j*size*1.18)); yy+=lines.length*size*1.18+gap; });
+  return yy-gap; }
+function drawTile(){ refreshTileFile(); if(!overlay.hidden) scheduleHosted();
+  const [W,H]=FMTS[tile.fmt]; cvs.width=W; cvs.height=H; const s=W/1080; const text=tile.text.trim()||'Select a passage to share.'; const note=tile.useNote&&tile.note?tile.note.trim():'';
+  const items=tile.list?text.split('\n').map(t=>t.trim()).filter(Boolean).slice(0,4):null;
+  ctx.clearRect(0,0,W,H);
+  if(tile.style==='card'||tile.style==='cardDark'){
+    const dark=tile.style==='cardDark'; ctx.fillStyle=dark?BRAND.charcoal:BRAND.grey; ctx.fillRect(0,0,W,H); mintBar(W,s);
+    const pad=W*0.11; dots(pad+12*s,H*0.13,s,BRAND.copper,dark?'#8a8f97':'#c9ccd1',W-pad*2-12*s);
+    const cx=pad, cy=H*0.19, cw=W-pad*2, ch=H-cy-H*0.12;
+    ctx.save(); ctx.shadowColor='rgba(0,0,0,.28)'; ctx.shadowBlur=40*s; ctx.shadowOffsetY=18*s; ctx.fillStyle=BRAND.white; rr(cx,cy,cw,ch,10*s); ctx.fill(); ctx.restore();
+    let y=cy+48*s; const ph=pill(tile.label||'KEY TAKEAWAY',cx+44*s,y,s); y+=ph+40*s;
+    const maxW=cw-88*s; const noteH=note?H*0.16:0; const maxH=ch-(y-cy)-noteH-200*s;
+    if(items){ y=drawItems(items,cx+44*s,y,maxW,maxH,BRAND.copper,s,'"Times New Roman", Times, serif'); } else {
+    const f=fit(text,maxW,maxH,'"Times New Roman", Times, serif','400',Math.round(70*s),Math.round(34*s),1.14); ctx.font='400 '+f.size+'px "Times New Roman", Times, serif';
+    y=drawLines(f.lines,cx+44*s,y+f.size*0.85,f.size,1.14,BRAND.copper); }
+    if(note){ y+=14*s; const nf=fit('“'+note+'”',maxW*0.72,noteH,'"Times New Roman", Times, serif','400',Math.round(28*s),Math.round(20*s),1.3,'italic'); ctx.font='italic 400 '+nf.size+'px "Times New Roman", Times, serif'; drawLines(nf.lines,cx+44*s,y+nf.size,nf.size,1.3,BRAND.mute); }
+    icon(cx+cw-230*s,cy+ch-200*s,s,BRAND.copperLight);
+    ctx.fillStyle='#eef0f2'; ctx.beginPath(); ctx.arc(cx+70*s,cy+ch-70*s,26*s,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#6b6f77'; ctx.lineWidth=2.5*s; ctx.beginPath(); ctx.moveTo(cx+60*s,cy+ch-70*s); ctx.lineTo(cx+80*s,cy+ch-70*s); ctx.moveTo(cx+70*s,cy+ch-80*s); ctx.lineTo(cx+70*s,cy+ch-60*s); ctx.stroke();
+    footer(W,H,s,dark?'#aeb2b9':'#6b6f77',pad);
+  } else if(tile.style==='statement'){
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#5a6a78'); g.addColorStop(.45,'#3a4047'); g.addColorStop(1,'#1f2226'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    for(let i=0;i<5;i++){ ctx.fillStyle='rgba(255,255,255,'+(0.035-i*0.005)+')'; ctx.fillRect(W*(0.1+i*0.2),H*0.08,W*0.14,H*0.6); }
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(0,H*0.5,W,H*0.5); mintBar(W,s);
+    const pad=W*0.08; ctx.font='600 '+Math.round(20*s)+'px "IBM Plex Sans Condensed", sans-serif'; if('letterSpacing' in ctx) ctx.letterSpacing=(3*s)+'px'; ctx.fillStyle='#d9c6b0'; ctx.fillText((tile.label||'KEY TAKEAWAY').toUpperCase(),pad,H*0.14); if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+    const maxW=W-pad*2; const noteH=note?H*0.14:0; const top=H*0.36; const maxH=H-top-noteH-H*0.16;
+    let y; if(items){ y=drawItems(items,pad,top-40*s,maxW,maxH,BRAND.white,s,'"Times New Roman", Times, serif'); } else {
+    const f=fit(text,maxW,maxH,'"Times New Roman", Times, serif','400',Math.round(78*s),Math.round(36*s),1.12); ctx.font='400 '+f.size+'px "Times New Roman", Times, serif';
+    const all=f.lines; const split=Math.max(1,Math.round(all.length*0.4)); y=drawLines(all.slice(0,split),pad,top,f.size,1.12,BRAND.white); y=drawLines(all.slice(split),pad,y,f.size,1.12,'#c99a68'); }
+    if(note){ const nf=fit('“'+note+'”',maxW*0.8,noteH,'"Times New Roman", Times, serif','400',Math.round(28*s),Math.round(20*s),1.3,'italic'); ctx.font='italic 400 '+nf.size+'px "Times New Roman", Times, serif'; drawLines(nf.lines,pad,y+20*s+nf.size,nf.size,1.3,'#d8dadd'); }
+    footer(W,H,s,'#aeb2b9',pad);
+  } else { // market note, in the cream chart-card style
+    ctx.fillStyle=BRAND.cream; ctx.fillRect(0,0,W,H); mintBar(W,s);
+    const pad=W*0.08; ctx.font='600 '+Math.round(22*s)+'px "IBM Plex Sans Condensed", sans-serif'; if('letterSpacing' in ctx) ctx.letterSpacing=(2.5*s)+'px'; ctx.fillStyle=BRAND.copper; ctx.fillText('ASIA STRATEGY FOCUS · '+(tile.label||'KEY TAKEAWAY').toUpperCase(),pad,H*0.14); if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+    const maxW=W-pad*2; const noteH=note?H*0.16:0; const top=H*0.22; const maxH=H-top-noteH-H*0.22;
+    let y; if(items){ y=drawItems(items,pad,top,maxW,maxH,BRAND.ink,s,'"Times New Roman", Times, serif'); } else {
+    const f=fit(text,maxW,maxH,'"Times New Roman", Times, serif','400',Math.round(72*s),Math.round(34*s),1.14); ctx.font='400 '+f.size+'px "Times New Roman", Times, serif';
+    y=drawLines(f.lines,pad,top+f.size*0.85,f.size,1.14,BRAND.ink); }
+    if(note){ ctx.font='400 '+Math.round(22*s)+'px Amplitude, "Archivo", Arial, sans-serif'; ctx.fillStyle=BRAND.copper; ctx.fillText('MY TAKE',pad,y+24*s); const nf=fit(note,maxW*0.85,noteH-40*s,'Amplitude, "Archivo", Arial, sans-serif','400',Math.round(28*s),Math.round(20*s),1.35); ctx.font='400 '+nf.size+'px Amplitude, "Archivo", Arial, sans-serif'; y=drawLines(nf.lines,pad,y+40*s+nf.size,nf.size,1.35,'#4b4f58'); }
+    ctx.strokeStyle='#d8d2c6'; ctx.lineWidth=2*s; ctx.beginPath(); ctx.moveTo(pad,H-90*s); ctx.lineTo(W-pad,H-90*s); ctx.stroke();
+    footer(W,H,s,'#6b6f77',pad);
+  }
+}
+const overlay=document.getElementById('shareOverlay'), tText=document.getElementById('tileText'), tLabel=document.getElementById('tileLabel'), tNote=document.getElementById('tileNote'), tName=document.getElementById('tileName'), tCnt=document.getElementById('tileCnt'), draftWrap=document.getElementById('draftWrap');
+function openShare(id,dest){ const h=typeof id==='object'?id:byId(id); if(!h)return; closePop(); closeSheet();
+  tile.list=!!h.list; tText.maxLength=tile.list?600:220; tile.text=h.text; tile.note=h.note||''; tile.useNote=!!h.note; tile.color=h.color; tile.label=h.list?'KEY TAKEAWAYS':h.color==='question'?'QUESTION TO ASK':h.color==='action'?'ACTION TO TAKE':'KEY TAKEAWAY';
+  document.querySelectorAll('.dest .pulse').forEach(x=>x.classList.remove('pulse')); if(dest){ const el=document.getElementById(dest); if(el){ el.classList.add('pulse'); setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),250); } }
+  tText.value=tile.text; tLabel.value=tile.label; tNote.checked=tile.useNote; tNote.disabled=!h.note; tNote.parentNode.style.opacity=h.note?'1':'.5'; tCnt.textContent=tile.text.length+' / '+tText.maxLength;
+  try{ tile.name=localStorage.getItem(KEY+':name')||''; }catch(e){} tName.value=tile.name;
+  draftWrap.hidden=true; stepsWrap.hidden=true; overlay.hidden=false; hostedUrl=null; hostedKey=''; document.getElementById('svcStatus').textContent=''; scheduleHosted(); document.getElementById('shareSub').textContent=(navigator.share&&navigator.canShare)?'One tap: the tile and your text go straight into the app you pick.':'Turn what you marked into a tile for your network. In this preview the tile is copied for you to paste; on a phone or your own site it attaches in one tap.'; document.body.style.overflow='hidden'; fontsP.then(()=>{ drawTile(); updateLinks(); }); drawTile(); updateLinks(); }
+function closeShare(){ overlay.hidden=true; document.body.style.overflow=''; }
+document.getElementById('shareClose').addEventListener('click',closeShare); overlay.addEventListener('click',e=>{ if(e.target===overlay) closeShare(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!overlay.hidden) closeShare(); });
+document.getElementById('popShare').addEventListener('click',()=>{ const h=byId(popId); if(h){ h.note=popNote.value.trim(); save(); renderAll(); openShare(h.id); } });
+document.getElementById('styleChips').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; tile.style=b.dataset.style; [...b.parentNode.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b))); drawTile(); });
+document.getElementById('fmtChips').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; tile.fmt=b.dataset.fmt; [...b.parentNode.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b))); drawTile(); });
+tText.addEventListener('input',()=>{ tile.text=tText.value; tCnt.textContent=tText.value.length+' / '+tText.maxLength; drawTile(); updateLinks(); });
+tLabel.addEventListener('input',()=>{ tile.label=tLabel.value.toUpperCase(); drawTile(); });
+tNote.addEventListener('change',()=>{ tile.useNote=tNote.checked; drawTile(); updateLinks(); });
+tName.addEventListener('input',()=>{ tile.name=tName.value.trim(); try{ localStorage.setItem(KEY+':name',tile.name); }catch(e){} drawTile(); });
+
+function linkFor(){ return hostedUrl||ARTICLE_URL; }
+function shareText(){ if(tile.list){ const ls=tile.text.split('\n').map(t=>t.trim()).filter(Boolean); return 'My takeaways from '+ARTICLE_TITLE+' (J.P. Morgan Private Bank):\n\n'+ls.map((t,i)=>(i+1)+'. '+t).join('\n')+'\n\n'+linkFor(); } const q='“'+tile.text.trim()+'”'; const n=tile.useNote&&tile.note?'\n\nMy take: '+tile.note.trim():''; return q+n+'\n\nFrom '+ARTICLE_TITLE+', J.P. Morgan Private Bank\n'+linkFor(); }
+// LinkedIn's share-offsite endpoint takes only a URL; feed/?shareActive prefills the composer text (desktop web). wa.me carries text only. No platform share link accepts an image, so the tile travels via clipboard or a saved PNG.
+function updateLinks(){ document.getElementById('dWhatsApp').href='https://wa.me/?text='+encodeURIComponent(shareText()); document.getElementById('dLinkedIn').href=hostedUrl?'https://www.linkedin.com/sharing/share-offsite/?url='+encodeURIComponent(hostedUrl):'https://www.linkedin.com/feed/?shareActive=true&text='+encodeURIComponent(shareText()); }
+function tileKey(){ return [tile.style,tile.fmt,tile.label,tile.text,tile.useNote?tile.note:'',tile.name].join('\u0001'); }
+function scheduleHosted(){ if(!SHARE_SVC) return; const k=tileKey(); if(k===hostedKey&&hostedUrl) return; hostedUrl=null; updateLinks(); const st=document.getElementById('svcStatus'); st.textContent='Preparing share link…'; clearTimeout(hostedTimer); hostedTimer=setTimeout(async()=>{ if(hostedBusy) return scheduleHosted(); hostedBusy=true; const key=tileKey(); try{ const blob=await tileBlob(); const png=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
+    const r=await fetch(SHARE_SVC+'/api/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({png,text:tile.list?tile.text.split('\n').filter(Boolean).join(' · '):tile.text,title:ARTICLE_TITLE,label:tile.label,article:ARTICLE_URL})});
+    if(!r.ok) throw new Error('upload '+r.status); const j=await r.json(); if(tileKey()===key){ hostedUrl=j.url; hostedKey=key; updateLinks(); st.textContent='Share link ready: the tile shows as the preview card'; } else scheduleHosted(); }
+  catch(e){ st.textContent='Share link unavailable; sharing the article link instead'; } finally{ hostedBusy=false; } },900); }
+const isTouch=matchMedia('(pointer:coarse)').matches; const KEYS=navigator.platform&&/Mac|iPhone|iPad/.test(navigator.platform)?'⌘V':'Ctrl+V';
+function copyTile(){ // must start inside the click; use the cached blob when present, else Safari's promise form
+  if(!navigator.clipboard||!window.ClipboardItem) return Promise.reject(new Error('unsupported'));
+  return navigator.clipboard.write([new ClipboardItem({'image/png':tileFile?tileFile:tileBlob()})]); }
+const stepsWrap=document.getElementById('stepsWrap'), stepsList=document.getElementById('stepsList');
+function showSteps(label,steps){ document.getElementById('stepsLabel').textContent=label; stepsList.innerHTML=''; steps.forEach(s=>{ const li=document.createElement('li'); li.innerHTML=s.html; if(s.done) li.className='done'; stepsList.appendChild(li); }); stepsWrap.hidden=false; stepsWrap.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function handoff(platform){ // with a hosted link the tile travels as the preview card; otherwise copy it for pasting
+  if(hostedUrl){ showSteps('Next steps · '+platform,[{html:'Your text and tile link open in '+platform,done:true},{html:platform==='LinkedIn'?'LinkedIn shows the tile as the post\'s preview card; add a line and post':'WhatsApp shows the tile as the link preview; pick a chat and send',done:false}]); return; }
+  const p=copyTile(); p.then(()=>{ toast('Tile copied'); showSteps('Next steps · '+platform,[{html:'Tile copied to your clipboard',done:true},{html:'Your text opens in '+platform+(isTouch?' (sent as a message you can edit)':' with the link preview'),done:false},{html:isTouch?'Tap the attach icon and pick the tile from Photos, or paste it if your keyboard offers it':'Click into the composer and paste the tile with <kbd>'+KEYS+'</kbd>'+(platform==='LinkedIn'?' (if nothing appears, use the photo button and pick the saved PNG)':''),done:false}]); })
+  .catch(()=>{ showSteps('Next steps · '+platform,[{html:'This browser blocks image copy, so use <b>Save image</b> first',done:false},{html:'Your text opens in '+platform,done:false},{html:'Attach the saved PNG from your '+(isTouch?'Photos':'Downloads folder'),done:false}]); }); }
+// One-tap path: the device share sheet carries the tile and the text straight into WhatsApp, LinkedIn, Instagram or Mail. The Claude preview blocks this API, so there it falls back to the copy handoff.
+function nativeShare(e,platform,withUrl){ const f=tileFile; if(!isTouch) return false; /* desktop share sheets (macOS especially) do not list WhatsApp, LinkedIn or Instagram */ if(!(f&&navigator.share&&navigator.canShare&&navigator.canShare({files:[f]}))) return false;
+  e.preventDefault(); draftWrap.hidden=true; stepsWrap.hidden=true; const data={files:[f],title:ARTICLE_TITLE,text:withUrl?shareText():instaCaption()};
+  navigator.share(data).then(()=>toast('Shared with the tile attached')).catch(err=>{ if(err&&err.name==='AbortError')return; handoff(platform); }); return true; }
+document.getElementById('dLinkedIn').addEventListener('click',e=>{ if(nativeShare(e,'LinkedIn',true))return; draftWrap.hidden=true; if(hostedUrl&&navigator.clipboard) navigator.clipboard.writeText(shareText()).catch(()=>{}); handoff('LinkedIn'); });
+document.getElementById('dWhatsApp').addEventListener('click',e=>{ if(nativeShare(e,'WhatsApp',true))return; draftWrap.hidden=true; handoff('WhatsApp'); });
+function emailDraft(kind){ const q=tile.text.trim(); const note=tile.useNote&&tile.note?tile.note.trim():''; const who=tile.name||'';
+  if(kind==='colleague'){ return {subject:'Worth a look: '+ARTICLE_TITLE,body:'Hi all,\n\nOne line from J.P. Morgan\'s Asia mid-year outlook that stood out to me:\n\n“'+q+'”\n'+(note?'\n'+note+'\n':'')+'\nFull piece here: '+ARTICLE_URL+'\n\nHappy to discuss.'+(who?'\n\n'+who:'')}; }
+  return {subject:'Question on the Asia mid-year outlook',body:'Hello,\n\nI was reading J.P. Morgan\'s '+ARTICLE_TITLE+' and marked this passage:\n\n“'+q+'”\n'+(note?'\nMy question: '+note+'\n':'\nCould we discuss how this applies to my portfolio and whether any changes are worth considering?\n')+'\nLink: '+ARTICLE_URL+'\n\nThank you,'+(who?'\n'+who:'')}; }
+let curDraft=null;
+function showDraft(kind){ curDraft=emailDraft(kind); document.getElementById('draftLabel').textContent=kind==='colleague'?'Email to colleagues':'Email to your advisor'; document.getElementById('draftBox').textContent='Subject: '+curDraft.subject+'\n\n'+curDraft.body; document.getElementById('draftMail').href='mailto:?subject='+encodeURIComponent(curDraft.subject)+'&body='+encodeURIComponent(curDraft.body);
+  const form=document.getElementById('sendForm'), box=document.getElementById('draftBox');
+  if(SHARE_SVC){ stepsWrap.hidden=true; form.hidden=false; box.hidden=true; document.getElementById('draftMail').hidden=true; document.getElementById('draftCopy').hidden=true; document.getElementById('sendSubject').value=curDraft.subject; document.getElementById('sendBody').value=curDraft.body; document.getElementById('sendHint').textContent='The tile is embedded in the email and attached as a PNG.'; setTimeout(()=>document.getElementById('sendTo').focus(),100); }
+  else { form.hidden=true; box.hidden=false; document.getElementById('draftMail').hidden=false; document.getElementById('draftCopy').hidden=false; showSteps('Next steps · Email',[{html:'<b>Open in Mail</b> starts the message with the subject and text filled in, and copies the tile for you',done:false},{html:'Click into the body and paste the tile with <kbd>'+KEYS+'</kbd> (or <b>Save image</b> and attach the PNG)',done:false}]); }
+  draftWrap.hidden=false; draftWrap.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+document.getElementById('sendBtn').addEventListener('click',async()=>{ const btn=document.getElementById('sendBtn'), hint=document.getElementById('sendHint'); const to=document.getElementById('sendTo').value.trim(); if(!to){ hint.textContent='Add at least one email address.'; document.getElementById('sendTo').focus(); return; }
+  btn.disabled=true; hint.textContent='Sending…';
+  try{ const blob=await tileBlob(); const png=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
+    const r=await fetch(SHARE_SVC+'/api/email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to,subject:document.getElementById('sendSubject').value,body:document.getElementById('sendBody').value,png,link:linkFor(),name:tile.name})});
+    const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    hint.textContent='Sent to '+j.sent+' recipient'+(j.sent===1?'':'s')+' with the tile.'; toast('Email sent with the tile'); }
+  catch(e){ hint.textContent=(e&&e.message)||'Could not send. Try Open in Mail instead.'; }
+  finally{ btn.disabled=false; } });
+document.getElementById('draftMail').addEventListener('click',()=>{ copyTile().then(()=>toast('Tile copied: paste it into the email body')).catch(()=>{}); });
+function emailShare(e,kind){ const f=tileFile; if(!isTouch) return false; /* macOS Mail's share extension drops the subject into the body; the mail link carries it properly */ if(!(f&&navigator.share&&navigator.canShare&&navigator.canShare({files:[f]}))) return false; const d=emailDraft(kind); e.preventDefault(); navigator.share({files:[f],title:d.subject,text:d.body}).then(()=>toast('Shared with the tile attached')).catch(err=>{ if(err&&err.name==='AbortError')return; showDraft(kind); }); return true; }
+document.getElementById('dColleague').addEventListener('click',e=>{ if(!emailShare(e,'colleague')) showDraft('colleague'); });
+document.getElementById('dAdvisor').addEventListener('click',e=>{ if(!emailShare(e,'advisor')) showDraft('advisor'); });
+document.getElementById('draftCopy').addEventListener('click',()=>{ if(!curDraft)return; const t=curDraft.subject==='Instagram caption'?curDraft.body:'Subject: '+curDraft.subject+'\n\n'+curDraft.body; navigator.clipboard.writeText(t).then(()=>toast('Draft copied. Save the tile to attach it.')).catch(()=>toast('Select the draft text and copy it')); });
+function tileBlob(){ return new Promise(res=>cvs.toBlob(res,'image/png')); }
+document.getElementById('dSave').addEventListener('click',async()=>{ const blob=await tileBlob(); if(!blob){ toast('Could not render the tile'); return; }
+  if(downloadsFn){ try{ await downloadsFn.save({filename:'asia-outlook-takeaway-'+tile.fmt+'.png',data:blob}); toast('Saved'); }catch(e){ if(e&&e.code!=='cancelled') toast('Save declined. Try Copy image instead.'); } }
+  else { toast('Saving is not available here. Use Copy image, or long-press the preview.'); } });
+document.getElementById('dCopyImg').addEventListener('click',()=>{ copyTile().then(()=>toast('Tile copied. Paste it into your post or message.')).catch(()=>toast('Image copy is blocked in this browser. Use Save image.')); });
+
+takeOut.addEventListener('click',e=>{ const b=e.target.closest('.tshare'); if(b){ openShare({text:b.dataset.text,note:'',color:b.dataset.kind}); return; }
+  const r=e.target.closest('.take-share button'); if(!r)return; const items=[...takeOut.querySelectorAll('.tshare[data-kind="key"]')].map(x=>x.dataset.text).slice(0,3);
+  if(!items.length){ toast('No key takeaways to share yet'); return; } openShare({text:items.join('\n'),note:'',color:'key',list:true},r.dataset.dest||null); });
+function shareRow(){ const ico={wa:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20l1.3-3.8A8 8 0 1 1 8.2 19.1L4 20z"/></svg>',li:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 10v7M8 7v.5M12 17v-4a2 2 0 0 1 4 0v4M12 10v7"/></svg>',ig:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>',em:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>'};
+  return '<div class="take-share"><h5>Share your takeaways</h5><p>Your top three become one tile, with the text ready for the channel you pick.</p><div class="row"><button data-dest="dWhatsApp">'+ico.wa+'WhatsApp</button><button data-dest="dLinkedIn">'+ico.li+'LinkedIn</button><button data-dest="dInstagram">'+ico.ig+'Instagram</button><button data-dest="dColleague">'+ico.em+'Email</button></div><button class="all">Open the tile editor</button></div>'; }
+// Instagram has no web share URL and its web composer takes a file upload only: save the PNG, copy the caption, open Instagram.
+function instaCaption(){ const q='“'+tile.text.trim()+'”'; const n=tile.useNote&&tile.note?'\n\n'+tile.note.trim():''; return q+n+'\n\nFrom '+ARTICLE_TITLE+', J.P. Morgan Private Bank. Full outlook on privatebank.jpmorgan.com\n\n#AsiaOutlook #Markets #Investing #AsiaStrategyFocus'; }
+document.getElementById('dInstagram').addEventListener('click',async e=>{ if(nativeShare(e,'Instagram',false))return; draftWrap.hidden=true;
+  if(tile.fmt==='square'||tile.fmt==='wide'){ tile.fmt='portrait'; [...document.getElementById('fmtChips').children].forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.fmt==='portrait'))); drawTile(); }
+  let captionOk=false; try{ await navigator.clipboard.writeText(instaCaption()); captionOk=true; }catch(e){}
+  const steps=[{html:captionOk?'Caption with hashtags copied to your clipboard':'Caption could not be copied; use <b>Copy draft</b> below',done:captionOk}];
+  if(downloadsFn){ try{ const blob=await tileBlob(); await downloadsFn.save({filename:'asia-outlook-takeaway-'+tile.fmt+'.png',data:blob}); steps.push({html:'Tile saved as a PNG',done:true}); }catch(e){ steps.push({html:'Save was declined: use <b>Save image</b> when ready',done:false}); } }
+  else steps.push({html:'Use <b>Save image</b> to get the PNG (on a phone, long-press the preview and save it)',done:false});
+  steps.push({html:'In Instagram, create a post or story and pick the saved tile',done:false},{html:'Paste the caption with <kbd>'+KEYS+'</kbd>',done:false});
+  showSteps('Next steps · Instagram',steps);
+  curDraft={subject:'Instagram caption',body:instaCaption()}; document.getElementById('draftLabel').textContent='Instagram caption'; document.getElementById('draftBox').textContent=instaCaption(); document.getElementById('draftBox').hidden=false; document.getElementById('sendForm').hidden=true; document.getElementById('draftMail').hidden=true; document.getElementById('draftCopy').hidden=false; draftWrap.hidden=false; });
+document.getElementById('dColleague').addEventListener('click',()=>{ document.getElementById('draftMail').hidden=false; });
+document.getElementById('dAdvisor').addEventListener('click',()=>{ document.getElementById('draftMail').hidden=false; });
+// ---------- boot ----------
+load(); renderAll(); progress();
+})();
+</script>
